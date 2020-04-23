@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.6.2)
+cmake_minimum_required(VERSION 2.8.12)
 
 project(qwt)
 
@@ -23,8 +23,7 @@ add_library(${PROJECT_NAME} ${HEADER_FILES} ${SOURCE_FILES} ${MOC_SOURCE_FILES})
 
 target_include_directories(${PROJECT_NAME}
   PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 target_link_libraries(${PROJECT_NAME} ${QT_LIBRARIES})
