@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.6.2)
+cmake_minimum_required(VERSION 2.8.12)
 
 set(HEADER_FILES ${HEADER_FILES}
 src/qwt.h
