@@ -1,0 +1,42 @@
+name: Build Qwt
+
+on: [push, pull_request]
+jobs:
+  ResInsight-x64:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Cache Qt
+        id: cache-qt
+        uses: actions/cache@v2
+        with:
+          path: ${{ github.workspace }}/Qt/
+          key: ${{ runner.os }}-QtCache-5-12-12
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v2
+        with:
+          version: 5.12.12
+          dir: "${{ github.workspace }}/Qt/"
+          cached: ${{ steps.cache-qt.outputs.cache-hit }}
+
+      - name: Install Linux dependencies
+        if: "contains( matrix.os, 'ubuntu')"
+        run: sudo apt-get install libxkbcommon-x11-0 libgl1-mesa-dev mesa-common-dev libglfw3-dev libglu1-mesa-dev
+
+      - name: Build 
+        uses: lukka/run-cmake@v1
+        with:
+          cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+          cmakeListsTxtPath: "${{ github.workspace }}/CMakeLists.txt"
+          cmakeAppendedArgs:
+          buildDirectory: ${{ github.workspace }}/cmakebuild
+          buildWithCMakeArgs: "--config Release"
+          useVcpkgToolchainFile: false
+ 
