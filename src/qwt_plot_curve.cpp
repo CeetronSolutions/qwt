@@ -1055,6 +1055,9 @@ int QwtPlotCurve::closestPoint( const QPointF& pos, double* dist ) const
     if ( plot() == NULL || numSamples <= 0 )
         return -1;
 
+    if ( !plot()->isAxisValid( xAxis() ) || !plot()->isAxisValid( yAxis() ) )
+        return -1;
+
     const QwtSeriesData< QPointF >* series = data();
 
     const QwtScaleMap xMap = plot()->canvasMap( xAxis() );

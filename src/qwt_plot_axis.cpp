@@ -770,14 +770,14 @@ void QwtPlot::updateAxes()
         {
             const QRectF rect = item->boundingRect();
 
-            if ( rect.width() >= 0.0 )
+            if ( isAxisValid( item->xAxis()) && rect.width() >= 0.0 )
             {
                 const QwtAxisId xAxis = item->xAxis();
                 boundingIntervals[ xAxis.pos ][ xAxis.id ] |=
                     QwtInterval( rect.left(), rect.right() );
             }
 
-            if ( rect.height() >= 0.0 )
+            if ( isAxisValid( item->yAxis()) && rect.height() >= 0.0 )
             {
                 const QwtAxisId yAxis = item->yAxis();
                 boundingIntervals[ yAxis.pos ][ yAxis.id ] |=
@@ -831,7 +831,8 @@ void QwtPlot::updateAxes()
     for ( it = itmList.begin(); it != itmList.end(); ++it )
     {
         QwtPlotItem* item = *it;
-        if ( item->testItemInterest( QwtPlotItem::ScaleInterest ) )
+        if ( item->testItemInterest( QwtPlotItem::ScaleInterest ) &&
+             isAxisValid( item->xAxis() ) && isAxisValid( item->yAxis() ) )
         {
             item->updateScaleDiv( axisScaleDiv( item->xAxis() ),
                 axisScaleDiv( item->yAxis() ) );
