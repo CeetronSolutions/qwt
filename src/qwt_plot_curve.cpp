@@ -786,6 +786,8 @@ void QwtPlotCurve::drawSteps( QPainter* painter,
         points[ip].ry() = yi;
     }
 
+    const bool doFit = (m_data->attributes & Fitted) && m_data->curveFitter;
+
     if ( m_data->paintAttributes & ClipPolygons )
     {
         QRectF clipRect = qwtIntersectedClipRect( canvasRect, painter );
@@ -793,13 +795,23 @@ void QwtPlotCurve::drawSteps( QPainter* painter,
         const qreal pw = QwtPainter::effectivePenWidth( painter->pen() );
         clipRect = clipRect.adjusted(-pw, -pw, pw, pw);
 
-        const QPolygonF clipped = QwtClipper::clippedPolygonF(
+        QPolygonF clipped = QwtClipper::clippedPolygonF(
             clipRect, polygon, false );
+
+        if (doFit)
+        {
+            clipped = m_data->curveFitter->fitCurve(clipped);
+        }
 
         QwtPainter::drawPolyline( painter, clipped );
     }
     else
     {
+		if (doFit)
+		{
+			polygon = m_data->curveFitter->fitCurve(polygon);
+		}
+
         QwtPainter::drawPolyline( painter, polygon );
     }
 
