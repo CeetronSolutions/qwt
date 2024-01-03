@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 2.8.12)
-
 set(HEADER_FILES ${HEADER_FILES}
 src/qwt.h 
 src/qwt_abstract_scale_draw.h 
@@ -207,12 +205,10 @@ src/qwt_scale_widget.cpp)
 
 # QwtOpenGL
 set(HEADER_FILES ${HEADER_FILES}
-src/qwt_plot_glcanvas.h
 src/qwt_plot_opengl_canvas.h
 )
 
 set(SOURCE_FILES ${SOURCE_FILES}
-src/qwt_plot_glcanvas.cpp
 src/qwt_plot_opengl_canvas.cpp
 )
 

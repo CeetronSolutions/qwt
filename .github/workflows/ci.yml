@@ -8,35 +8,35 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+        qtver: [5.12.12, 6.5.3]
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Cache Qt
-        id: cache-qt
-        uses: actions/cache@v2
-        with:
-          path: ${{ github.workspace }}/Qt/
-          key: ${{ runner.os }}-QtCache-5-12-12
+        uses: actions/checkout@v4
 
       - name: Install Qt
-        uses: jurplel/install-qt-action@v2
+        uses: jurplel/install-qt-action@v3
         with:
-          version: 5.12.12
+          version: ${{ matrix.qtver }}
           dir: "${{ github.workspace }}/Qt/"
-          cached: ${{ steps.cache-qt.outputs.cache-hit }}
+          cache: true
+          cache-key-prefix: ${{ matrix.qtver }}-${{ matrix.os }}
 
       - name: Install Linux dependencies
         if: "contains( matrix.os, 'ubuntu')"
         run: sudo apt-get install libxkbcommon-x11-0 libgl1-mesa-dev mesa-common-dev libglfw3-dev libglu1-mesa-dev
+      
+      - name: Use MSVC (Windows)
+        uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Build 
-        uses: lukka/run-cmake@v1
-        with:
-          cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
-          cmakeListsTxtPath: "${{ github.workspace }}/CMakeLists.txt"
-          cmakeAppendedArgs:
-          buildDirectory: ${{ github.workspace }}/cmakebuild
-          buildWithCMakeArgs: "--config Release"
-          useVcpkgToolchainFile: false
- 
+      - name: Configure 5.12
+        if: "contains( matrix.qtver, '5.12')"
+        run: |
+          cmake -S . -B build
+
+      - name: Configure 6.5
+        if: "contains( matrix.qtver, '6.5')"
+        run: |
+          cmake -S . -DUSE_QT6=TRUE -B build
+  
+      - name: Build
+        run: cmake --build build
