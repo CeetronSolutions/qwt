@@ -13,6 +13,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install Linux dependencies
+        if: contains(matrix.os, 'ubuntu')
+        run: sudo apt-get install libxkbcommon-x11-0 libgl1-mesa-dev mesa-common-dev libglfw3-dev libglu1-mesa-dev
+
       - name: Install Qt
         uses: jurplel/install-qt-action@v3
         with:
@@ -20,16 +24,12 @@ jobs:
           dir: "${{ github.workspace }}/Qt/"
           cache: true
           cache-key-prefix: ${{ matrix.qtver }}-${{ matrix.os }}
-
-      - name: Install Linux dependencies
-        if: ${{ matrix.os == 'ubuntu'}}
-        run: sudo apt-get install libxkbcommon-x11-0 libgl1-mesa-dev mesa-common-dev libglfw3-dev libglu1-mesa-dev
       
       - name: Use MSVC (Windows)
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: Configure 5.12
-        if: "contains( matrix.qtver, '5.12')"
+        if: contains( matrix.qtver, '5.12')
         run: |
           cmake -S . -B build
 
