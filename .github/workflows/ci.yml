@@ -9,6 +9,9 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
         qtver: [5.12.12, 6.5.3]
+        include:
+          - qtver: 6.5.3
+            build_flags: -DUSE_QT6=TRUE
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,15 +31,7 @@ jobs:
       - name: Use MSVC (Windows)
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Configure 5.12
-        if: contains( matrix.qtver, '5.12')
+      - name: Configure and build
         run: |
-          cmake -S . -B build
-
-      - name: Configure 6.5
-        if: contains( matrix.qtver, '6.5')
-        run: |
-          cmake -S . -DUSE_QT6=TRUE -B build
-  
-      - name: Build
-        run: cmake --build build
+          cmake -S . ${{matrix.build_flags}} -B build
+          cmake --build build
