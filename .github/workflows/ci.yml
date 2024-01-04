@@ -2,7 +2,7 @@ name: Build Qwt
 
 on: [push, pull_request]
 jobs:
-  ResInsight-x64:
+  build-qwt:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -22,7 +22,7 @@ jobs:
           cache-key-prefix: ${{ matrix.qtver }}-${{ matrix.os }}
 
       - name: Install Linux dependencies
-        if: "contains( matrix.os, 'ubuntu')"
+        if: ${{ matrix.os == 'ubuntu'}}
         run: sudo apt-get install libxkbcommon-x11-0 libgl1-mesa-dev mesa-common-dev libglfw3-dev libglu1-mesa-dev
       
       - name: Use MSVC (Windows)
