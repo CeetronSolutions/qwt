@@ -34,7 +34,7 @@ jobs:
           cmake -S . -B build
 
       - name: Configure 6.5
-        if: "contains( matrix.qtver, '6.5')"
+        if: contains( matrix.qtver, '6.5')
         run: |
           cmake -S . -DUSE_QT6=TRUE -B build
   
