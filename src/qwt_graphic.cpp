@@ -118,18 +118,33 @@ static inline void qwtExecCommand(
             {
                 const QTransform tr = painter->transform();
 
-                painter->resetTransform();
+                // Qt 6.9 fix: Check for degenerate transform (zero scale factors)
+                // which would collapse the path to nothing when mapped
+                const bool hasValidScale = ( qAbs( tr.m11() ) > 1e-10 || qAbs( tr.m12() ) > 1e-10 ) &&
+                                           ( qAbs( tr.m21() ) > 1e-10 || qAbs( tr.m22() ) > 1e-10 );
 
-                QPainterPath path = tr.map( *cmd.path() );
-                if ( initialTransform )
+                if ( hasValidScale )
                 {
-                    painter->setTransform( *initialTransform );
-                    path = initialTransform->inverted().map( path );
+                    painter->resetTransform();
+
+                    QPainterPath path = tr.map( *cmd.path() );
+                    if ( initialTransform )
+                    {
+                        painter->setTransform( *initialTransform );
+                        path = initialTransform->inverted().map( path );
+                    }
+
+                    painter->drawPath( path );
+
+                    painter->setTransform( tr );
                 }
-
-                painter->drawPath( path );
-
-                painter->setTransform( tr );
+                else
+                {
+                    // Degenerate transform - use the render transform instead
+                    painter->setTransform( transform );
+                    painter->drawPath( *cmd.path() );
+                    painter->setTransform( tr );
+                }
             }
             else
             {
@@ -262,7 +277,7 @@ class QwtGraphic::PathInfo
         const QRectF& targetRect, bool scalePens ) const
     {
         if ( pathRect.width() <= 0.0 )
-            return 0.0;
+            return 1.0;  // Return 1.0 for zero-width paths (vertical lines)
 
         const QPointF p0 = m_pointRect.center();
 
@@ -293,7 +308,7 @@ class QwtGraphic::PathInfo
         const QRectF& targetRect, bool scalePens ) const
     {
         if ( pathRect.height() <= 0.0 )
-            return 0.0;
+            return 1.0;  // Return 1.0 for zero-height paths (horizontal lines)
 
         const QPointF p0 = m_pointRect.center();
 
