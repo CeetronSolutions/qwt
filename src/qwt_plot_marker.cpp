@@ -173,21 +173,29 @@ void QwtPlotMarker::drawLines( QPainter* painter,
         m_data->style == QwtPlotMarker::Cross )
     {
         double y = pos.y();
-        if ( doAlign )
-            y = qRound( y );
+        // Qt 6.9 fix: Check for valid finite value before rounding
+        if ( qIsFinite( y ) )
+        {
+            if ( doAlign )
+                y = qRound( y );
 
-        QwtPainter::drawLine( painter, canvasRect.left(),
-            y, canvasRect.right() - 1.0, y );
+            QwtPainter::drawLine( painter, canvasRect.left(),
+                y, canvasRect.right() - 1.0, y );
+        }
     }
     if ( m_data->style == QwtPlotMarker::VLine ||
         m_data->style == QwtPlotMarker::Cross )
     {
         double x = pos.x();
-        if ( doAlign )
-            x = qRound( x );
+        // Qt 6.9 fix: Check for valid finite value before rounding
+        if ( qIsFinite( x ) )
+        {
+            if ( doAlign )
+                x = qRound( x );
 
-        QwtPainter::drawLine( painter, x,
-            canvasRect.top(), x, canvasRect.bottom() - 1.0 );
+            QwtPainter::drawLine( painter, x,
+                canvasRect.top(), x, canvasRect.bottom() - 1.0 );
+        }
     }
 }
 
