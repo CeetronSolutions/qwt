@@ -8,13 +8,13 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        qtver: [5.12.12, 6.5.3]
+        qtver: [6.5.3, 6.9]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Qt
-        uses: jurplel/install-qt-action@v3
+        uses: jurplel/install-qt-action@v4
         with:
           version: ${{ matrix.qtver }}
           dir: "${{ github.workspace }}/Qt/"
@@ -28,13 +28,7 @@ jobs:
       - name: Use MSVC (Windows)
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Configure 5.12
-        if: "contains( matrix.qtver, '5.12')"
-        run: |
-          cmake -S . -B build
-
-      - name: Configure 6.5
-        if: "contains( matrix.qtver, '6.5')"
+      - name: Configure
         run: |
           cmake -S . -DUSE_QT6=TRUE -B build
   
