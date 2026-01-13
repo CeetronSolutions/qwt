@@ -88,8 +88,50 @@ static inline void qwtExecCommand(
         case QwtPainterCommand::Path:
         {
             bool doMap = false;
+            const QTransform currentTr = painter->transform();
 
-            if ( painter->transform().isScaling() )
+            // Qt 6.9 fix: Check for degenerate transform (zero scale factors)
+            // which would collapse the path to nothing when drawn.
+            const bool hasValidScale = ( qAbs( currentTr.m11() ) > 1e-10 || qAbs( currentTr.m12() ) > 1e-10 ) &&
+                                       ( qAbs( currentTr.m21() ) > 1e-10 || qAbs( currentTr.m22() ) > 1e-10 );
+
+            // Qt 6.9 fix: Check for paths with negative coordinates that need centering.
+            // This happens when Qt 6.9 records transforms as zeros, losing the
+            // translation that was meant to position symbols at the center of the
+            // drawing area. Detect this by checking if the path has negative coords
+            // AND the current transform has no significant translation.
+            const QRectF pathRect = cmd.path()->boundingRect();
+            const bool needsCentering = ( pathRect.left() < 0.0 || pathRect.top() < 0.0 ) &&
+                                        qAbs( currentTr.dx() ) < 1.0 && qAbs( currentTr.dy() ) < 1.0;
+
+            if ( needsCentering )
+            {
+                // This path was meant to be transformed (centered symbol)
+                // but the transform was lost. Center it in the visible area.
+                QRectF targetRect = painter->clipBoundingRect();
+                if ( targetRect.isEmpty() )
+                    targetRect = painter->viewport();
+
+                // Create a transform that centers the path in the target
+                QTransform centerTr;
+                centerTr.translate( targetRect.center().x(), targetRect.center().y() );
+
+                painter->setTransform( centerTr );
+                painter->drawPath( *cmd.path() );
+                painter->setTransform( currentTr );
+                break;
+            }
+
+            // If the transform is completely degenerate (zero scale), use render transform
+            if ( !hasValidScale )
+            {
+                painter->setTransform( transform );
+                painter->drawPath( *cmd.path() );
+                painter->setTransform( currentTr );
+                break;
+            }
+
+            if ( currentTr.isScaling() )
             {
                 bool isCosmetic = painter->pen().isCosmetic();
 #if QT_VERSION < 0x050000
@@ -118,33 +160,18 @@ static inline void qwtExecCommand(
             {
                 const QTransform tr = painter->transform();
 
-                // Qt 6.9 fix: Check for degenerate transform (zero scale factors)
-                // which would collapse the path to nothing when mapped
-                const bool hasValidScale = ( qAbs( tr.m11() ) > 1e-10 || qAbs( tr.m12() ) > 1e-10 ) &&
-                                           ( qAbs( tr.m21() ) > 1e-10 || qAbs( tr.m22() ) > 1e-10 );
+                painter->resetTransform();
 
-                if ( hasValidScale )
+                QPainterPath path = tr.map( *cmd.path() );
+                if ( initialTransform )
                 {
-                    painter->resetTransform();
-
-                    QPainterPath path = tr.map( *cmd.path() );
-                    if ( initialTransform )
-                    {
-                        painter->setTransform( *initialTransform );
-                        path = initialTransform->inverted().map( path );
-                    }
-
-                    painter->drawPath( path );
-
-                    painter->setTransform( tr );
+                    painter->setTransform( *initialTransform );
+                    path = initialTransform->inverted().map( path );
                 }
-                else
-                {
-                    // Degenerate transform - use the render transform instead
-                    painter->setTransform( transform );
-                    painter->drawPath( *cmd.path() );
-                    painter->setTransform( tr );
-                }
+
+                painter->drawPath( path );
+
+                painter->setTransform( tr );
             }
             else
             {
@@ -189,7 +216,25 @@ static inline void qwtExecCommand(
 
             if ( data->flags & QPaintEngine::DirtyTransform )
             {
-                painter->setTransform( data->transform * transform );
+                // Qt 6.9 fix: Check if the recorded transform is degenerate
+                // (zero scale factors). This can happen when paths with zero
+                // width or height cause scale calculations to become zero.
+                const bool hasValidRecordedScale =
+                    ( qAbs( data->transform.m11() ) > 1e-10 || qAbs( data->transform.m12() ) > 1e-10 ) &&
+                    ( qAbs( data->transform.m21() ) > 1e-10 || qAbs( data->transform.m22() ) > 1e-10 );
+
+                QTransform newTr;
+                if ( hasValidRecordedScale )
+                {
+                    newTr = data->transform * transform;
+                }
+                else
+                {
+                    // If the recorded transform is degenerate, use the render
+                    // transform directly instead of multiplying by zero
+                    newTr = transform;
+                }
+                painter->setTransform( newTr );
             }
 
             if ( data->flags & QPaintEngine::DirtyClipEnabled )
@@ -277,7 +322,21 @@ class QwtGraphic::PathInfo
         const QRectF& targetRect, bool scalePens ) const
     {
         if ( pathRect.width() <= 0.0 )
-            return 1.0;  // Return 1.0 for zero-width paths (vertical lines)
+            return 0.0;  // Return 0.0 for zero-width paths (will be skipped by caller)
+
+        // Qt 6.9 fix: Also check if m_pointRect has zero width
+        // This can happen for vertical lines where the path itself has non-zero
+        // width (due to being part of a larger graphic) but this PathInfo
+        // represents a zero-width element
+        if ( m_pointRect.width() <= 0.0 )
+            return 0.0;  // Return 0.0 to be skipped by caller
+
+        // Qt 6.9 fix: A zero-height element (like a horizontal line) should not
+        // contribute to X scaling when combined with other elements that have
+        // proper dimensions. This prevents the line from constraining the
+        // overall aspect ratio calculation.
+        if ( m_pointRect.height() <= 0.0 )
+            return 0.0;
 
         const QPointF p0 = m_pointRect.center();
 
@@ -308,7 +367,21 @@ class QwtGraphic::PathInfo
         const QRectF& targetRect, bool scalePens ) const
     {
         if ( pathRect.height() <= 0.0 )
-            return 1.0;  // Return 1.0 for zero-height paths (horizontal lines)
+            return 0.0;  // Return 0.0 for zero-height paths (will be skipped by caller)
+
+        // Qt 6.9 fix: Also check if m_pointRect has zero height
+        // This can happen for horizontal lines where the path itself has non-zero
+        // height (due to being part of a larger graphic) but this PathInfo
+        // represents a zero-height element
+        if ( m_pointRect.height() <= 0.0 )
+            return 0.0;  // Return 0.0 to be skipped by caller
+
+        // Qt 6.9 fix: A zero-width element (like a vertical line) should not
+        // contribute to Y scaling when combined with other elements that have
+        // proper dimensions. This prevents the line from constraining the
+        // overall aspect ratio calculation.
+        if ( m_pointRect.width() <= 0.0 )
+            return 0.0;
 
         const QPointF p0 = m_pointRect.center();
 
@@ -712,11 +785,11 @@ void QwtGraphic::render( QPainter* painter, const QRectF& rect,
         const double ssx = info.scaleFactorX(
             m_data->pointRect, rect, scalePens );
 
-        if ( ssx > 0.0 )
-            sx = qwtMinF( sx, ssx );
-
         const double ssy = info.scaleFactorY(
             m_data->pointRect, rect, scalePens );
+
+        if ( ssx > 0.0 )
+            sx = qwtMinF( sx, ssx );
 
         if ( ssy > 0.0 )
             sy = qwtMinF( sy, ssy );
